@@ -12,9 +12,10 @@ import logging
 from arq import run_worker
 
 from app.queue import QUEUE_WORKER, redis_settings
+from app.tasks.ai import generate_story_text
 from app.tasks.heartbeat import heartbeat
 from app.tasks.ingest import fetch_source
-from app.tasks.process import process_article
+from app.tasks.process import process_article, reprocess_story
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,7 +24,13 @@ logging.basicConfig(
 
 
 class WorkerSettings:
-    functions = [heartbeat, fetch_source, process_article]
+    functions = [
+        heartbeat,
+        fetch_source,
+        process_article,
+        reprocess_story,
+        generate_story_text,
+    ]
     redis_settings = redis_settings()
     queue_name = QUEUE_WORKER
 

@@ -66,18 +66,18 @@ No section clears on assertion — only on a passing gate.
 | 11 | Basic public interface (Jinja/HTMX) | 3 | **BUILT** | 2026-08-15 | Front page, story page, topics, sources, search. |
 | 12 | Feed builder | 3 | **BUILT** (rules engine) | partial | Visual builder is admin work, deferred. |
 | 13 | Feed preview | 3 | Deferred | — | Needs the admin UI. |
-| 14 | AI abstraction layer | 4 | Not started | — | |
-| 15 | AI headlines | 4 | Not started | — | |
-| 16 | AI summaries | 4 | Not started | — | |
+| 14 | AI abstraction layer | 4 | **BUILT** | 2026-08-15 | Provider protocol + extractive fallback + Anthropic. |
+| 15 | AI headlines | 4 | **BUILT** | 2026-08-15 | Versioned; guard-checked. |
+| 16 | AI summaries | 4 | **BUILT** | 2026-08-15 | Configurable length per §18. |
 | 17 | Story clustering | 4 | **BUILT** (non-AI) | 2026-08-15 | Entity-based; calibrated on live coverage. |
-| 18 | Multi-source synthesis | 4 | Not started | — | |
-| 19 | Conflict detection | 4 | Not started | — | |
+| 18 | Multi-source synthesis | 4 | **BUILT** | 2026-08-15 | Multi-source stories synthesize; single-source summarize. |
+| 19 | Conflict detection | 4 | **BUILT** (numeric) | partial | Disagreeing figures detected; prose conflicts need the model. |
 | 20 | Trending engine | 4 | **BUILT** | 2026-08-15 | Baseline-relative; factors stored individually. |
-| 21 | Administrative review queue | 4 | **BUILT** (writes only) | partial | 26 items queued on live data; review UI deferred. |
+| 21 | Administrative review queue | 4 | **BUILT** | 2026-08-15 | Queue + one-screen review UI with approve/reject. |
 | 22 | Search | 5 | **BUILT** (keyword) | 2026-08-15 | Semantic search left open per §31. |
 | 23 | RSS output | 5 | **BUILT** | 2026-08-15 | /rss/<slug>, our headline + publisher's link. |
 | 24 | Source health | 6 | **BUILT** | 2026-08-15 | Per-attempt log, backoff, resting; shown on /sources. |
-| 25 | Administrative dashboard | 6 | Not started | — | |
+| 25 | Administrative dashboard | 6 | **BUILT** | 2026-08-15 | Needs-attention first, per §35.1. |
 | 26 | Monitoring & observability | 6 | Not started | — | |
 | 27 | Notifications | 6 | Not started | — | |
 | 28 | Performance optimization | 7 | Not started | — | |
@@ -290,3 +290,64 @@ database will fail on somebody's laptop.
 **Deferred to Group C:** AI provider abstraction with an extractive fallback, AI
 headlines and summaries, multi-source synthesis, conflict detection, and the
 administrative interface (dashboard, source wizard, visual feed builder, review UI).
+
+### Group C — the AI layer and the administrative interface
+**Date:** 2026-08-15
+
+**Built:**
+- `app/services/ai/` — the §16 abstraction: a provider protocol, an **extractive**
+  provider that needs no key, an **Anthropic** provider, a **guard**, and a service layer
+  owning versioning, cost, and fallback.
+- `app/admin.py` + eight templates — dashboard, sources, source detail with fetch
+  history, review queue, stories with editorial controls, feed health, audit log.
+- 50 new tests (221 total).
+
+**The decision that shapes this group: the guard.** §15 lists twelve prohibitions. A
+prompt asking a model to obey them is a request, not enforcement — so generated text is
+checked against the source reporting *mechanically* before it is stored:
+
+| §15 rule | Check |
+|---|---|
+| Never invent statistics | every number in the output must appear in the sources |
+| Never invent quotations | any quoted span must appear in the sources |
+| Never invent sources | capitalized names absent from the sources are flagged |
+
+Numbers and quotations are hard failures — the two ways a summary can state something
+false with total confidence. The system falls back to the extractive provider and files
+the rejected text in the review queue, because a model that just tried to invent a
+casualty figure is precisely what an editor should see. A stray name is a warning that
+lowers confidence and routes for review.
+
+The rest of §15 ("never change the meaning", "never present speculation as fact") are
+judgements a checker cannot make. Claiming otherwise would be its own dishonesty, so
+those stay with the prompt and the review queue, and the docstring says so.
+
+**Why the extractive provider is the default.** It selects sentences the publishers
+already wrote rather than composing new ones, so it is structurally incapable of
+violating §15 — and v1 therefore runs with no API key, no spend, and no blank summaries.
+Setting `AI_PROVIDER=anthropic` upgrades it; the extractive provider stays as the
+fallback for a provider outage, a budget stop, or a guard rejection.
+
+**Cost control (§28).** Usage recorded per call with an estimated cost; daily and
+monthly caps checked before spending; unchanged inputs never regenerated (fingerprinted);
+an importance threshold to keep spending on what matters.
+
+**Versioning (§26) is structural.** Regeneration inserts a new `ai_results` row and moves
+`is_current`; nothing is updated in place. A human edit is never overwritten by a rerun —
+tested, because that is Non-Negotiable #5 and the easiest rule to break by accident.
+
+**Proven on the live corpus:** 40 artifacts generated across 20 stories with no API key.
+The five-source West Bank story and the four-source Lebanon story both produced real
+syntheses drawn from the publishers' own words, and every one records exactly which
+articles it came from — which is what makes "generated from 6 source reports" checkable
+rather than decorative.
+
+**Two bugs of my own, caught by the tests:** a leftover nonsense expression
+(`story and "generate" or "generate"`) wrote an invalid operation into `ai_usage`, and the
+CHECK constraint from Section 2 rejected it — the schema catching the application. And
+the guard's proper-noun check ignored sentence-initial names, so an invented outlet in
+the first position would have passed; a two-word-capitalized-run rule fixed it.
+
+**Deferred:** authentication on /admin (Section 3 — the roles exist, nothing enforces
+them), the source onboarding wizard (§35.2), the visual feed builder (§29.1), global
+command search (§35.6), saved views (§35.7), and notifications (§39).

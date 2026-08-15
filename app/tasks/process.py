@@ -126,6 +126,14 @@ async def process_article(ctx: dict, article_id: int) -> str:
         placed = publish_story(session, story, now=now)
         _finish(session, job, True, payload={"feeds": [feed_id for feed_id, _ in placed]})
 
+        # §17/§18 run as their own stage: a provider outage must not cost us the
+        # story, only its presentation text.
+        redis = ctx.get("redis")
+        if redis is not None:
+            from app.queue import QUEUE_WORKER
+
+            await redis.enqueue_job("generate_story_text", story.id, _queue_name=QUEUE_WORKER)
+
         session.commit()
         result = (
             f"article {article_id} → story {story.id} "

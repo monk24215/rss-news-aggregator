@@ -12,8 +12,15 @@ eleven of which gathered reporting from multiple outlets (one Israeli-settler st
 five publishers, one Lebanon airstrike from four), with 26 borderline matches routed to a
 review queue rather than merged silently.
 
-**No AI keys are required.** Headlines and summaries fall back to the publisher's own,
-labelled as such. Configuring a provider upgrades them; nothing breaks without one.
+**No AI keys are required.** The default provider selects sentences the publishers
+already wrote, so it cannot fabricate anything, and everything it produces is labelled.
+Set `AI_PROVIDER=anthropic` with a key to upgrade — output is then checked against the
+source reporting before it is stored, and anything containing an invented figure or
+quotation is rejected and routed to a human (§15).
+
+There is an administrative interface at `/admin`: a needs-attention dashboard, source
+health with fetch history, the review queue, editorial controls, feed health, and the
+audit log.
 
 See `docs/BUILD_LOG.md` for exactly where the build is.
 
@@ -64,6 +71,8 @@ uvicorn app.main:app            # the site at http://localhost:8000
 | `/feed/<slug>` | One feed instance |
 | `/rss/<slug>` | That feed as RSS — our headline, the publisher's link (§30) |
 | `/search?q=` | Keyword search across headlines and summaries |
+| `/admin` | Dashboard — what needs attention, then activity (§35.1) |
+| `/admin/sources`, `/admin/review`, `/admin/stories`, `/admin/feeds`, `/admin/audit` | Operate it |
 | `/health`, `/status` | Operational |
 
 ## Local development

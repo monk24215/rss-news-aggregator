@@ -1,0 +1,47 @@
+{% extends "admin/base.html" %}
+{% block title %}Review queue{% endblock %}
+{% block content %}
+<h1>Review queue</h1>
+<p class="muted">Decisions the system made but is not confident about, and output the guard
+   objected to. Resolving one here is the record — it is written to the audit log.</p>
+
+{% if items %}
+<table>
+  <tr><th style="width:11rem;">Reason</th><th>Story</th><th style="width:6rem;">Confidence</th><th style="width:12rem;">Action</th></tr>
+  {% for item in items %}
+  <tr>
+    <td><span class="pill warn">{{ item.reason.replace('_', ' ') }}</span>
+      <div class="faint">{{ relative_time(item.created_at) }}</div></td>
+    <td>
+      {% set card = cards.get(item.story_id) %}
+      {% if card %}<a href="/story/{{ card.story.slug or card.story.id }}">{{ card.headline.text }}</a>
+        <div class="faint">{{ card.source_count }} source{{ '' if card.source_count == 1 else 's' }}</div>
+      {% else %}<span class="faint">story {{ item.story_id or '—' }}</span>{% endif %}
+      {% if item.detail %}
+        {% if item.detail.get('warnings') %}
+          <div class="faint">{{ item.detail['warnings'] | join('; ') }}</div>
+        {% endif %}
+        {% if item.detail.get('rejected_text') %}
+          <div class="faint">rejected text: “{{ item.detail['rejected_text'][:160] }}”</div>
+        {% endif %}
+        {% if item.detail.get('rationale') %}
+          <div class="faint">{{ item.detail['rationale'] }}</div>
+        {% endif %}
+      {% endif %}
+    </td>
+    <td>{{ '%.2f'|format(item.confidence) if item.confidence is not none else '—' }}</td>
+    <td>
+      <form class="inline" method="post" action="/admin/review/{{ item.id }}/resolve">
+        <input type="hidden" name="decision" value="approved" /><button type="submit">Approve</button>
+      </form>
+      <form class="inline" method="post" action="/admin/review/{{ item.id }}/resolve">
+        <input type="hidden" name="decision" value="rejected" /><button type="submit">Reject</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<div class="empty">Nothing is waiting for review.</div>
+{% endif %}
+{% endblock %}

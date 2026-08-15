@@ -15,6 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
+from app.admin import router as admin_router
 from app.config import get_settings
 from app.db import SYNC_DATABASE_URL, probe_db
 from app.probes import Probe, describe_failure, redact_url
@@ -101,8 +102,10 @@ def status_page(request: Request) -> HTMLResponse:
     )
 
 
-# The reader-facing site (§34). Declared after the operational endpoints so /health and
-# /status keep their own handlers.
+# The administrative interface (§35), then the reader-facing site (§34). Declared after
+# the operational endpoints so /health and /status keep their own handlers, and admin
+# before public so /admin is not swallowed by a public route.
+app.include_router(admin_router)
 app.include_router(public_router)
 
 

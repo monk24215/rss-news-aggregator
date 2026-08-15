@@ -23,6 +23,19 @@ class Settings(BaseSettings):
     # Human-friendly app name for the health page.
     app_name: str = "AI RSS News Aggregator"
 
+    # --- AI (§16, §28) -------------------------------------------------------
+    #: "extractive" (no key, always works) or "anthropic". §16's provider choice is
+    #: configuration, never a code change.
+    ai_provider: str = "extractive"
+    anthropic_api_key: str = ""
+    ai_model: str = "claude-sonnet-4-6"
+    #: Generate presentation text for stories at or above this importance, so the money
+    #: goes to what matters (§28 "process only important articles").
+    ai_min_importance: float = 0.0
+    #: Spend caps in USD. Zero disables the cap. Checked before every call.
+    ai_daily_cost_limit_usd: float = 5.0
+    ai_monthly_cost_limit_usd: float = 100.0
+
 
 @lru_cache
 def get_settings() -> Settings:

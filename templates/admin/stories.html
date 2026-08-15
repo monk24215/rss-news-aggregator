@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+{% block title %}Stories{% endblock %}
+{% block content %}
+<h1>Stories</h1>
+<table>
+  <tr><th>Story</th><th style="width:5rem;">Sources</th><th style="width:5rem;">Trend</th>
+      <th style="width:7rem;">State</th><th style="width:12rem;">Editorial</th></tr>
+  {% for card in cards %}
+  <tr>
+    <td><a href="/story/{{ card.story.slug or card.story.id }}">{{ card.headline.text }}</a>
+      <div class="faint">{{ relative_time(card.published_at) }}
+        {% if card.headline.is_ai %}· <span class="pill">AI headline</span>{% endif %}</div></td>
+    <td>{{ card.source_count }}</td>
+    <td>{{ '%.0f'|format(card.story.trending_score or 0) }}</td>
+    <td><span class="pill">{{ card.story.state }}</span>
+      {% if card.story.is_locked %}<span class="pill warn">locked</span>{% endif %}
+      {% if card.story.is_hidden %}<span class="pill warn">hidden</span>{% endif %}</td>
+    <td>
+      <form class="inline" method="post" action="/admin/story/{{ card.story.id }}/hide">
+        <button type="submit">{{ 'Unhide' if card.story.is_hidden else 'Hide' }}</button>
+      </form>
+      <form class="inline" method="post" action="/admin/story/{{ card.story.id }}/lock">
+        <button type="submit">{{ 'Unlock' if card.story.is_locked else 'Lock' }}</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}
