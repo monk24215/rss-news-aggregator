@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["app", "app.models", "app.tasks"]
+packages = ["app", "app.models", "app.services", "app.tasks"]
 
 [project]
 name = "rss-news-aggregator"
@@ -22,6 +22,7 @@ dependencies = [
     "pydantic==2.10.4",
     "pydantic-settings==2.7.0",
     "httpx==0.28.1",
+    "feedparser==6.0.11",
 ]
 
 [project.optional-dependencies]
