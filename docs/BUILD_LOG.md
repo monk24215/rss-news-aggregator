@@ -56,27 +56,27 @@ No section clears on assertion — only on a passing gate.
 | 1 | Foundation (repo, services boot, CI, health, scheduler→worker heartbeat) | 1 | **CLEARED in production** | 2026-08-15 | All three services Online; `/health` green; heartbeats accumulating. One gate item outstanding: CI green on a PR (workflow now written, awaiting repo write access). |
 | 2 | Database schema & migrations (3-layer model) | 1 | **BUILT — local gate green; awaiting CI + Railway deploy** | partial | 34 tables, Layer 1 immutability enforced by trigger, 65 tests green, migration reverses cleanly. |
 | 3 | Authentication & permissions (roles) | 1 | Not started | — | |
-| 4 | Source management | 2 | Not started | — | |
-| 5 | RSS/Atom ingestion | 2 | Not started | — | |
-| 6 | Processing queue | 2 | Not started | — | |
-| 7 | Article normalization | 2 | Not started | — | |
-| 8 | Deduplication | 2 | Not started | — | |
-| 9 | Tagging | 2 | Not started | — | |
-| 10 | Basic article/story API | 3 | Not started | — | |
-| 11 | Basic public interface (Jinja/HTMX) | 3 | Not started | — | |
-| 12 | Feed builder | 3 | Not started | — | |
-| 13 | Feed preview | 3 | Not started | — | |
+| 4 | Source management | 2 | **BUILT** (model + seed; admin UI deferred) | partial | 16 seeded sources, health tracked per fetch. |
+| 5 | RSS/Atom ingestion | 2 | **BUILT** | 2026-08-15 | 400 articles from 16 live feeds. |
+| 6 | Processing queue | 2 | **BUILT** | 2026-08-15 | Per-stage processing_jobs rows; each stage retryable. |
+| 7 | Article normalization | 2 | **BUILT** | 2026-08-15 | Pure, tested; §13's URL example passes. |
+| 8 | Deduplication | 2 | **BUILT** | 2026-08-15 | Four ordered signals + schema backstop. |
+| 9 | Tagging | 2 | **BUILT** (rule-based) | 2026-08-15 | AI classification replaces this in Group C. |
+| 10 | Basic article/story API | 3 | Deferred | — | Public site reads services directly; API when a second channel needs it. |
+| 11 | Basic public interface (Jinja/HTMX) | 3 | **BUILT** | 2026-08-15 | Front page, story page, topics, sources, search. |
+| 12 | Feed builder | 3 | **BUILT** (rules engine) | partial | Visual builder is admin work, deferred. |
+| 13 | Feed preview | 3 | Deferred | — | Needs the admin UI. |
 | 14 | AI abstraction layer | 4 | Not started | — | |
 | 15 | AI headlines | 4 | Not started | — | |
 | 16 | AI summaries | 4 | Not started | — | |
-| 17 | Story clustering | 4 | Not started | — | |
+| 17 | Story clustering | 4 | **BUILT** (non-AI) | 2026-08-15 | Entity-based; calibrated on live coverage. |
 | 18 | Multi-source synthesis | 4 | Not started | — | |
 | 19 | Conflict detection | 4 | Not started | — | |
-| 20 | Trending engine | 4 | Not started | — | |
-| 21 | Administrative review queue | 4 | Not started | — | |
-| 22 | Search | 5 | Not started | — | |
-| 23 | RSS output | 5 | Not started | — | |
-| 24 | Source health | 6 | Not started | — | |
+| 20 | Trending engine | 4 | **BUILT** | 2026-08-15 | Baseline-relative; factors stored individually. |
+| 21 | Administrative review queue | 4 | **BUILT** (writes only) | partial | 26 items queued on live data; review UI deferred. |
+| 22 | Search | 5 | **BUILT** (keyword) | 2026-08-15 | Semantic search left open per §31. |
+| 23 | RSS output | 5 | **BUILT** | 2026-08-15 | /rss/<slug>, our headline + publisher's link. |
+| 24 | Source health | 6 | **BUILT** | 2026-08-15 | Per-attempt log, backoff, resting; shown on /sources. |
 | 25 | Administrative dashboard | 6 | Not started | — | |
 | 26 | Monitoring & observability | 6 | Not started | — | |
 | 27 | Notifications | 6 | Not started | — | |
@@ -240,3 +240,53 @@ deploy) with `/health` still green afterwards.
 nothing checks it); all ingestion, dedup, and clustering *logic*; any AI calls; pgvector
 / embeddings, left open via `ai_results.payload` and the `create_embeddings` operation
 rather than committed to now.
+
+### Groups A and B — v1: ingestion through to a readable site
+**Date:** 2026-08-15
+**Scope:** collapsed sections 4-13 and 20-24 into two groups, to reach a usable product
+in one deployable branch rather than one handoff per section.
+
+**Built:**
+- **Group A — ingestion.** `app/services/{normalize,feedparse,dedupe,ingest}.py` and the
+  worker/scheduler tasks. Conditional requests, backoff, item caps, source resting.
+- **Group B — reading.** `app/services/{enrich,cluster,scoring,feeds,presentation,rss}.py`,
+  the public routes in `app/web.py`, six templates, and `scripts/seed.py`.
+
+**Proven on live data, not fixtures.** Sixteen public feeds, 400 articles, 356 stories:
+
+| | |
+|---|---|
+| Multi-source stories | 11 |
+| Largest | 5 publishers (Al Jazeera, BBC, DW, France 24, Guardian) on one West Bank story |
+| Next | 4 publishers on one Lebanon airstrike |
+| Borderline matches queued for review | 26 |
+| Feeds failing | 2 of 18 — CISA returns 403 to our user-agent, CBC timed out. Both recorded as source health, neither cost us the run. |
+
+**The bug the live run caught.** Against fixtures, clustering looked fine. Against real
+coverage it produced **zero** multi-source stories out of 400 articles. The scoring used
+Jaccard similarity on entity sets, which punishes exactly what real headlines do: two
+outlets name the same specifics and each adds its own context, so the union grows while
+the intersection does not. Genuine matches — one earthquake covered by four outlets —
+scored 0.28-0.61 against a 0.62 threshold and were all rejected.
+
+Fixed by scoring on the overlap coefficient rather than Jaccard, collapsing
+morphological variants ("Israel"/"Israeli" is one specific, not two), and requiring at
+least two distinct shared entities. Thresholds were then set *from the data*: 0.62 to
+join, 0.72 below which a match is flagged for review.
+
+**Lesson logged:** a similarity threshold chosen a priori is a guess. This one was
+wrong in the direction that looks like success — the system produced stories, they were
+just all singletons, and no test caught it because the fixtures were written by the same
+person who wrote the scorer. Only real coverage exposed it.
+
+**Second lesson:** the immutability trigger from Section 2 rejected two of my own tests
+that mutated `original_published_at` after insert. The rule is doing its job on the
+people writing the system, which is the only place it could ever have mattered.
+
+**Also fixed:** the test suite now uses its own database (`<db>_test`). It passed in CI
+and failed locally the moment seeded data existed — a suite that only passes on an empty
+database will fail on somebody's laptop.
+
+**Deferred to Group C:** AI provider abstraction with an extractive fallback, AI
+headlines and summaries, multi-source synthesis, conflict detection, and the
+administrative interface (dashboard, source wizard, visual feed builder, review UI).

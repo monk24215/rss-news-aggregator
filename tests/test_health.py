@@ -51,17 +51,18 @@ def test_health_reports_redis_reason(monkeypatch):
     assert "ConnectionError" in body["detail"]["redis"]["error"]
 
 
-def test_index_renders(monkeypatch):
+def test_status_page_renders(monkeypatch):
+    """The operational page moved to /status when / became the reader's front page."""
     _stub(monkeypatch, Probe(True), Probe(True))
-    resp = client.get("/")
+    resp = client.get("/status")
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
-    assert "Foundation skeleton is live" in resp.text
+    assert "connected" in resp.text
 
 
-def test_index_shows_failure_reason(monkeypatch):
+def test_status_page_shows_failure_reason(monkeypatch):
     _stub(monkeypatch, Probe(True), Probe(False, "TimeoutError", "redis://h:6379/0"))
-    resp = client.get("/")
+    resp = client.get("/status")
     assert "unavailable" in resp.text
     assert "TimeoutError" in resp.text
 

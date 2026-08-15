@@ -37,6 +37,9 @@ jobs:
 
     env:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/postgres
+      # The suite creates and uses its own database so it never depends on — or
+      # destroys — whatever is in the development one.
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/app_test
       REDIS_URL: redis://localhost:6379/0
 
     steps:
@@ -68,6 +71,11 @@ jobs:
 
       - name: Tests
         run: pytest -q
+
+      - name: Seed is idempotent
+        run: |
+          python -m scripts.seed
+          python -m scripts.seed
 
       - name: Smoke — real services write path
         run: python -m tests.smoke

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}{{ site_name|default("AI RSS News Aggregator") }}{% endblock %}</title>
+  {% if rss_slug %}
+  <link rel="alternate" type="application/rss+xml" title="{{ page_title }}" href="/rss/{{ rss_slug }}" />
+  {% endif %}
+  <style>
+    /*
+      §40: readable, restrained, strong typography, generous spacing. Light and dark
+      come from the reader's own system setting rather than a toggle we would have to
+      persist — §34.7 keeps preferences off the canonical records, and honouring the OS
+      is the version of that which needs no storage at all.
+    */
+    :root {
+      --bg: #fdfdfc;
+      --surface: #ffffff;
+      --text: #16150f;
+      --muted: #5d5b52;
+      --faint: #8b887d;
+      --rule: #e6e3da;
+      --accent: #8a3324;
+      --ai-bg: #f3f1ea;
+      --ai-text: #55503f;
+      --max: 44rem;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #14140f;
+        --surface: #1b1b16;
+        --text: #eceade;
+        --muted: #a8a496;
+        --faint: #7d7a6d;
+        --rule: #2e2d25;
+        --accent: #e08b6f;
+        --ai-bg: #232219;
+        --ai-text: #b9b4a0;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+      font-size: 1.0625rem;
+      line-height: 1.6;
+    }
+    a { color: inherit; }
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 0 1.25rem; }
+    .wide { max-width: 62rem; }
+
+    header.site {
+      border-bottom: 1px solid var(--rule);
+      padding: 1.5rem 0 1rem;
+      margin-bottom: 2rem;
+    }
+    header.site .masthead {
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.01em;
+      text-decoration: none;
+    }
+    nav.primary {
+      margin-top: 0.75rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.85rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    nav.primary a { color: var(--muted); text-decoration: none; }
+    nav.primary a:hover { color: var(--accent); }
+
+    h1, h2, h3 { line-height: 1.22; letter-spacing: -0.012em; margin: 0 0 0.5rem; }
+    h1 { font-size: 2rem; }
+    h2.section {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--faint);
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 0.4rem;
+      margin: 2.5rem 0 1.25rem;
+    }
+
+    .story { padding: 1.5rem 0; border-bottom: 1px solid var(--rule); }
+    .story:last-child { border-bottom: none; }
+    .story h3 { font-size: 1.3rem; }
+    .story.lead h3 { font-size: 1.7rem; }
+    .story a.headline { text-decoration: none; }
+    .story a.headline:hover { color: var(--accent); }
+    .story p.summary { margin: 0.4rem 0 0.6rem; color: var(--muted); }
+
+    .meta {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.8rem;
+      color: var(--faint);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 0.85rem;
+      align-items: baseline;
+    }
+    .meta .sources { color: var(--muted); }
+
+    /* Non-Negotiable #3: generated text never looks like reporting. */
+    .ai-note {
+      display: inline-block;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--ai-bg);
+      color: var(--ai-text);
+      padding: 0.12rem 0.45rem;
+      border-radius: 2px;
+      border: 1px solid var(--rule);
+    }
+
+    .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+    .tags a {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-decoration: none;
+      border: 1px solid var(--rule);
+      border-radius: 2px;
+      padding: 0.1rem 0.45rem;
+    }
+    .tags a:hover { border-color: var(--accent); color: var(--accent); }
+
+    figure.lede { margin: 0 0 1rem; }
+    figure.lede img { width: 100%; height: auto; border-radius: 3px; display: block; }
+
+    table.plain { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    table.plain td, table.plain th {
+      text-align: left; padding: 0.6rem 0.5rem 0.6rem 0; border-bottom: 1px solid var(--rule);
+    }
+    table.plain th {
+      font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem;
+      text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); font-weight: 600;
+    }
+
+    .empty {
+      border: 1px dashed var(--rule);
+      border-radius: 3px;
+      padding: 2rem 1.5rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    form.search { margin-top: 1rem; display: flex; gap: 0.5rem; }
+    form.search input {
+      flex: 1; padding: 0.45rem 0.6rem; font: inherit; font-size: 0.95rem;
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--rule); border-radius: 3px;
+    }
+    form.search button {
+      font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem;
+      padding: 0.45rem 0.9rem; cursor: pointer;
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--rule); border-radius: 3px;
+    }
+
+    footer.site {
+      margin: 4rem 0 3rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--rule);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.8rem;
+      color: var(--faint);
+    }
+    footer.site p { margin: 0.3rem 0; }
+  </style>
+</head>
+<body>
+  <header class="site">
+    <div class="wrap {% block header_width %}{% endblock %}">
+      <a class="masthead" href="/">{{ site_name|default("AI RSS News Aggregator") }}</a>
+      <nav class="primary">
+        <a href="/">Latest</a>
+        <a href="/topics">Topics</a>
+        <a href="/sources">Sources</a>
+        {% for f in feeds|default([]) %}<a href="/feed/{{ f.slug }}">{{ f.name }}</a>{% endfor %}
+        <a href="/search">Search</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap {% block main_width %}{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site wrap">
+    <p>Headlines and summaries link to the original publication. This site aggregates and
+       organizes reporting; it does not replace it.</p>
+    <p>AI-generated text is labelled wherever it appears.</p>
+  </footer>
+</body>
+</html>

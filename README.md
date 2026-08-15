@@ -2,10 +2,20 @@
 
 AI RSS News Aggregator. See the full specification in [`docs/`](docs/).
 
-**Current state:** Section 2 — Database schema. The services boot for real
-(web + worker + scheduler on Postgres + Redis) with a proven scheduler → Redis → worker
-heartbeat, and the canonical three-layer data model now exists in Postgres. No ingestion,
-AI, or product features yet — see `docs/BUILD_LOG.md` for exactly where the build is.
+**Current state: v1 works end to end.** The scheduler queues due sources, the worker
+fetches and normalizes them, duplicates are rejected, articles are tagged and clustered
+into stories, stories are scored and placed into feeds, and the public site renders them
+with full attribution — plus RSS output per feed.
+
+Verified on live coverage from sixteen public feeds: 400 articles became 356 stories,
+eleven of which gathered reporting from multiple outlets (one Israeli-settler story from
+five publishers, one Lebanon airstrike from four), with 26 borderline matches routed to a
+review queue rather than merged silently.
+
+**No AI keys are required.** Headlines and summaries fall back to the publisher's own,
+labelled as such. Configuring a provider upgrades them; nothing breaks without one.
+
+See `docs/BUILD_LOG.md` for exactly where the build is.
 
 ## Architecture (target, §43)
 
@@ -34,6 +44,27 @@ articles.original_headline   Layer 1  immutable, trigger-protected
 articles.importance_score    Layer 2  recomputed freely
 ai_results.content           Layer 3  versioned, append-only, never overwrites Layer 1
 ```
+
+## Trying it
+
+```bash
+alembic upgrade head
+python -m scripts.seed          # source types, tags, 16 sources, 2 feeds
+python -m app.worker &          # fetches and processes
+python -m app.scheduler &       # queues due sources every minute
+uvicorn app.main:app            # the site at http://localhost:8000
+```
+
+| Route | What it is |
+|-------|-----------|
+| `/` | Trending and latest (§34.2) |
+| `/story/<slug>` | One story: summary, every source article, timeline, why it is here (§34.3) |
+| `/topics`, `/topic/<slug>` | Browse by tag |
+| `/sources` | Browse by publication, with fetch health |
+| `/feed/<slug>` | One feed instance |
+| `/rss/<slug>` | That feed as RSS — our headline, the publisher's link (§30) |
+| `/search?q=` | Keyword search across headlines and summaries |
+| `/health`, `/status` | Operational |
 
 ## Local development
 

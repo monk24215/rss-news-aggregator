@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Topics{% endblock %}
+{% block content %}
+  <h1>Topics</h1>
+  <p class="summary">Every tag in use, with how many stories carry it.</p>
+  {% if topics %}
+  <table class="plain">
+    <tr><th>Topic</th><th>Stories</th></tr>
+    {% for tag, count in topics %}
+    <tr>
+      <td><a href="/topic/{{ tag.slug }}">{{ tag.name }}</a>
+        {% if tag.description %}<div class="meta">{{ tag.description }}</div>{% endif %}
+      </td>
+      <td>{{ count }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty"><p>No topics defined yet.</p></div>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block content %}
+  <h1>{{ page_title }}</h1>
+  {% if page_subtitle %}<p class="summary">{{ page_subtitle }}</p>{% endif %}
+  {% if rss_slug %}
+    <p class="meta"><a href="/rss/{{ rss_slug }}">RSS feed for this publication</a></p>
+  {% endif %}
+
+  {% if search_query is defined %}
+  <form class="search" method="get" action="/search">
+    <input type="search" name="q" value="{{ search_query }}" placeholder="Search headlines and summaries" aria-label="Search" />
+    <button type="submit">Search</button>
+  </form>
+  {% endif %}
+
+  {% if cards %}
+    <h2 class="section">{{ cards|length }} stor{{ 'y' if cards|length == 1 else 'ies' }}</h2>
+    {% for card in cards %}{% include "_card.html" %}{% endfor %}
+  {% else %}
+    <div class="empty"><p>Nothing here yet.</p></div>
+  {% endif %}
+{% endblock %}

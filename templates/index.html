@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ site_name|default("AI RSS News Aggregator") }}{% endblock %}
+{% block content %}
+
+{% if not trending and not latest %}
+  <div class="empty">
+    <p><strong>No stories yet.</strong></p>
+    <p>Add a source and the scheduler will start collecting. Stories appear here once
+       articles have been fetched, tagged, and clustered.</p>
+  </div>
+{% endif %}
+
+{% if trending %}
+  <h2 class="section">Trending</h2>
+  {% for card in trending %}
+    {% with lead = loop.first %}{% include "_card.html" %}{% endwith %}
+  {% endfor %}
+{% endif %}
+
+{% if latest %}
+  <h2 class="section">Latest</h2>
+  {% for card in latest %}{% include "_card.html" %}{% endfor %}
+{% endif %}
+
+{% endblock %}
