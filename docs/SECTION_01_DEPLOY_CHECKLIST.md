@@ -42,8 +42,11 @@ On the `rss-news-aggregator` service in Railway (the one currently showing "Buil
   In Railway: type `${{` and it autocompletes the available services/variables.)
 - **Settings → Deploy → Start Command:**
   ```
-  alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+  python -m alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
   ```
+  (Use the `python -m` form — Railway's builder does not always put the `alembic` and
+  `uvicorn` console scripts on PATH, which causes `alembic: command not found`. Invoking
+  them as modules is PATH-independent and reliable.)
 - Redeploy. When it's Online, open the service URL:
   - `/health` → `{"status":"ok","db":true,"redis":true}`
   - `/` → the Jinja health page renders.
