@@ -53,8 +53,8 @@ No section clears on assertion — only on a passing gate.
 
 | # | Section | Phase | Status | Gate cleared | Notes |
 |---|---------|-------|--------|--------------|-------|
-| 1 | Foundation (repo, services boot, CI, health, scheduler→worker heartbeat) | 1 | **BUILT — local gate green; awaiting Railway** | partial | Loop proven locally: 4 rows/17s, 0 failed. Clears fully once CI green on PR + 3 services Online on Railway. |
-| 2 | Database schema & migrations (3-layer model) | 1 | Not started | — | |
+| 1 | Foundation (repo, services boot, CI, health, scheduler→worker heartbeat) | 1 | **CLEARED in production** | 2026-08-15 | All three services Online; `/health` green; heartbeats accumulating. One gate item outstanding: CI green on a PR (workflow now written, awaiting repo write access). |
+| 2 | Database schema & migrations (3-layer model) | 1 | **BUILT — local gate green; awaiting CI + Railway deploy** | partial | 34 tables, Layer 1 immutability enforced by trigger, 65 tests green, migration reverses cleanly. |
 | 3 | Authentication & permissions (roles) | 1 | Not started | — | |
 | 4 | Source management | 2 | Not started | — | |
 | 5 | RSS/Atom ingestion | 2 | Not started | — | |
@@ -137,3 +137,106 @@ never trust the code path on inspection alone.
 **Deferred:** Domain models (§2), auth/roles (§3), retirement of the template
 `fastapi-postgresql` service until web boots green on Railway.
 
+
+### Section 1 — Foundation (gate closure)
+**Date:** 2026-08-15 (later the same day)
+
+**Production evidence:**
+
+| Gate item | Result |
+|-----------|--------|
+| 1. CI green on a PR | **Outstanding** — see "CI was never committed" below |
+| 2. web Online, `/health` → `db:true, redis:true` | PASS — `{"status":"ok","db":true,"redis":true}` |
+| 3. `GET /` renders the Jinja page | PASS |
+| 4. worker Online | PASS |
+| 5. scheduler Online | PASS |
+| 6. Heartbeats accumulating in production Postgres | PASS — tick id 95 and climbing, one per 30s, 0 failures |
+| 7. No secrets in the diff; config env-only | PASS |
+
+**Bug found and fixed in production: `redis: false` on the web service.**
+
+The worker and scheduler were consuming and executing jobs perfectly, while the web
+service reported Redis unavailable. Same variable names on all three services, same
+code path — so the natural reading was that the code was wrong.
+
+It was not. The web service's `REDIS_URL` was a stale literal value; the worker and
+scheduler, added later, had been wired with a proper Railway reference. Setting
+`REDIS_URL=${{Redis-JIlm.REDIS_URL}}` on the web service and redeploying turned
+`/health` green immediately.
+
+**Lesson logged:** a boolean health check cannot distinguish "wrong URL" from "DNS
+failure" from "refused connection", and that difference was the entire diagnosis. The
+health endpoint now reports a redacted reason on failure (`app/probes.py`), and the
+Jinja page shows the target it tried. This is the smallest useful down payment on §45.
+
+**Two things the log claimed that the repository did not contain.** Both the README and
+this log referenced `.github/workflows/ci.yml`. It was never committed — so gate item 1
+could not have passed, and nothing was verifying anything on push. `.gitignore` was
+likewise missing, which is why `__pycache__/` and `rss_news_aggregator.egg-info/` were
+tracked in Git. Both are now written; the CI workflow additionally runs a real-services
+smoke step and fails the build if a `.env` is ever tracked.
+
+**Lesson logged:** a build log entry is a claim, not evidence. "CI: Postgres+Redis
+service containers, ruff, migrations, pytest" was written in good faith and was false.
+From here, a gate item is only marked PASS with the command output or URL that proves it.
+
+---
+
+### Section 2 — Database Schema and Migrations
+**Date:** 2026-08-15
+**Instruction:** `docs/SECTION_02_INSTRUCTION.md`
+
+**Built:**
+- `app/models/` package replacing `app/models.py`, organized by data layer, every model
+  declaring `__layer__` (`base`, `enums`, `sources`, `content`, `ai`, `feeds`, `people`,
+  `ops`).
+- **34 tables** covering all of §6 plus the tables the addenda imply: story claims and
+  claim values (§24), timeline events (§22), scoring factors (§23/§25), review queue
+  (§27.2), AI usage (§28), audit log *and* change history as separate concerns (§36/§37),
+  saved views (§35.7), reader preferences (§34.7), notifications (§39).
+- Migration `0002_domain_schema`, plus `scripts/regen_domain_migration.py` to rebuild it
+  from the models while this section is in flight.
+- `docs/SCHEMA.md` — every table mapped to the requirement it serves.
+- 44 new tests (65 total).
+
+**Decisions:**
+- **Non-Negotiable #1 is enforced by a database trigger, not by application code.** Any
+  UPDATE touching an `original_*` column on `articles` is rejected with a message naming
+  the column. Convention would have been cheaper; it would also have held only until the
+  first careless `session.merge()`. Once original data is overwritten there is nothing to
+  restore it from, so this rule earns a trigger.
+- `IMMUTABLE_ORIGINAL_COLUMNS` is asserted against the real columns in a test, so adding
+  an unprotected `original_*` column fails CI rather than quietly opening a hole.
+- **AI content is append-only.** Regeneration inserts a new `ai_results` row and moves
+  `is_current`; nothing is updated in place, so §26's versioning is structural. A partial
+  unique index enforces one current row per (target, operation) — two indexes rather than
+  one, because Postgres treats NULLs as distinct and a single index over
+  (article_id, story_id) would never fire for article-targeted rows.
+- **Controlled vocabularies are CHECK-constrained strings, not Postgres ENUMs.** Several
+  of these lists are expected to grow; adding a value should be a one-line constraint
+  change rather than a migration with a lock.
+- **Source types are a table** (§7.1 requires them to be configurable), while story
+  states are a constraint (§21 fixes the list).
+- **`audit_logs` and `change_history` are separate tables.** §37 wants a human-readable
+  trail; §36 wants the previous value back for undo. One table cannot do both well.
+- `story_claims.resolved_value_id` uses `use_alter=True` — claims and values reference
+  each other, and without it the create order is unsortable.
+- `updated_at` uses `clock_timestamp()`, not `now()`: `now()` is fixed for a whole
+  transaction, which would make two changes in one transaction indistinguishable.
+
+**Gate result (local, against real Postgres + Redis):**
+- ruff clean · **65/65 tests pass** · smoke passes (scheduler → Redis → worker → Postgres).
+- Fresh `alembic upgrade head` on an empty database: 2 migrations, 34 tables, 18 triggers.
+- Re-running `upgrade head`: no-op.
+- `alembic downgrade base`: 0 tables and **0 trigger functions** left behind.
+- Re-upgrade: clean.
+- Immutability verified per column — all 9 `original_*` columns reject modification.
+
+**Outstanding for full clearance:** CI green on the PR, and the migration applied on
+Railway (the web service runs `python -m app.migrate` at start, so this happens on
+deploy) with `/health` still green afterwards.
+
+**Deferred:** authentication and permission enforcement (§3 — `users.role` exists but
+nothing checks it); all ingestion, dedup, and clustering *logic*; any AI calls; pgvector
+/ embeddings, left open via `ai_results.payload` and the `create_embeddings` operation
+rather than committed to now.

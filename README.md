@@ -2,9 +2,10 @@
 
 AI RSS News Aggregator. See the full specification in [`docs/`](docs/).
 
-**Current state:** Section 1 — Foundation. A skeleton that boots as real services
-(web + worker + scheduler on Postgres + Redis), with CI and a proven
-scheduler → Redis → worker heartbeat. No product features yet.
+**Current state:** Section 2 — Database schema. The services boot for real
+(web + worker + scheduler on Postgres + Redis) with a proven scheduler → Redis → worker
+heartbeat, and the canonical three-layer data model now exists in Postgres. No ingestion,
+AI, or product features yet — see `docs/BUILD_LOG.md` for exactly where the build is.
 
 ## Architecture (target, §43)
 
@@ -17,6 +18,22 @@ One codebase, run as multiple processes:
 | scheduler | `python -m app.scheduler` | Wakes on a timer, enqueues jobs. Does not process. |
 
 Postgres is the canonical store. Redis is the job broker.
+
+## The data model
+
+34 tables, organized by the three layers in §4.2 — original publisher data, system
+analysis, presentation. `docs/SCHEMA.md` maps every table to the requirement it serves.
+
+The rule that matters most is enforced by Postgres rather than by convention: a trigger
+rejects any UPDATE that changes an `original_*` column on `articles` (Non-Negotiable #1).
+Once a publisher's headline is overwritten there is nothing to restore it from, so that
+rule does not rely on everyone remembering it.
+
+```
+articles.original_headline   Layer 1  immutable, trigger-protected
+articles.importance_score    Layer 2  recomputed freely
+ai_results.content           Layer 3  versioned, append-only, never overwrites Layer 1
+```
 
 ## Local development
 
@@ -51,8 +68,13 @@ REDIS_URL=${{Redis.REDIS_URL}}
 
 ```bash
 ruff check .
-pytest -q
+pytest -q                 # 65 tests; schema tests skip if no Postgres is reachable
+python -m tests.smoke     # real scheduler → Redis → worker → Postgres proof
 ```
+
+The schema tests run against real Postgres on purpose: the guarantees they check
+(triggers, CHECK constraints, partial unique indexes) live in the database, and passing
+them against SQLite would prove nothing about production.
 
 CI (`.github/workflows/ci.yml`) runs lint, migrations, tests, and a real-services
 smoke test of the heartbeat write path against Postgres + Redis.
