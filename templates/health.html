@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ app_name }}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 4rem auto;
+           padding: 0 1rem; line-height: 1.5; color: #1a1a1a; }
+    h1 { font-size: 1.5rem; }
+    .status { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px;
+              font-size: 0.85rem; }
+    .ok { background: #e6f4ea; color: #137333; }
+    .bad { background: #fce8e6; color: #c5221f; }
+    dl { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1rem; }
+    footer { margin-top: 2rem; color: #666; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <h1>{{ app_name }}</h1>
+  <p>Foundation skeleton is live. Server-rendered page working.</p>
+  <dl>
+    <dt>Database</dt>
+    <dd>
+      {% if db_ok %}<span class="status ok">connected</span>
+      {% else %}<span class="status bad">unavailable</span>{% endif %}
+    </dd>
+    <dt>Redis</dt>
+    <dd>
+      {% if redis_ok %}<span class="status ok">connected</span>
+      {% else %}<span class="status bad">unavailable</span>{% endif %}
+    </dd>
+  </dl>
+  <footer>Section 1 — Foundation. No product features yet.</footer>
+</body>
+</html>
