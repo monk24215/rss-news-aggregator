@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
+from app.probes import Probe, describe_failure, redact_url
 
 
 def _normalize_sync_url(url: str) -> str:
@@ -37,11 +38,17 @@ def get_session() -> Iterator[Session]:
         session.close()
 
 
-def check_db() -> bool:
-    """Return True if a trivial query against Postgres succeeds."""
+def probe_db() -> Probe:
+    """Check Postgres connectivity, reporting the reason on failure."""
+    target = redact_url(SYNC_DATABASE_URL)
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        return True
-    except Exception:
-        return False
+        return Probe(True, None, target)
+    except Exception as exc:
+        return Probe(False, describe_failure(exc, SYNC_DATABASE_URL), target)
+
+
+def check_db() -> bool:
+    """Return True if a trivial query against Postgres succeeds."""
+    return probe_db().ok
