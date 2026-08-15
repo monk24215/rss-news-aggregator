@@ -8,7 +8,9 @@ get it green on **Railway**, which is what fully clears the Section 1 gate.
 ## Step 1 — Put the files in your repo
 
 Unzip this into your local clone of `rss-news-aggregator` (it contains `app/`, `alembic/`,
-`docs/`, CI, etc.). Then:
+`docs/`, CI, etc.). **`requirements.txt` must be present at the repo root** — Railway's
+Python builder installs dependencies from it. Without it, the container has no `alembic`,
+`arq`, etc. and crashes with `ModuleNotFoundError`. Then:
 
 ```bash
 git checkout -b section-1-foundation
