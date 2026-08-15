@@ -60,3 +60,16 @@ def index(request: Request) -> HTMLResponse:
             "redis_ok": check_redis(),
         },
     )
+
+
+if __name__ == "__main__":
+    # Allows `python -m app.main` as a PATH-independent way to start the server.
+    import os
+
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", "8000")),
+    )

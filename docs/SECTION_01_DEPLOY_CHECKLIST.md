@@ -42,11 +42,16 @@ On the `rss-news-aggregator` service in Railway (the one currently showing "Buil
   In Railway: type `${{` and it autocompletes the available services/variables.)
 - **Settings → Deploy → Start Command:**
   ```
-  python -m alembic upgrade head && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+  python -m app.migrate && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
   ```
-  (Use the `python -m` form — Railway's builder does not always put the `alembic` and
-  `uvicorn` console scripts on PATH, which causes `alembic: command not found`. Invoking
-  them as modules is PATH-independent and reliable.)
+  Why this exact form (both alternatives fail on Railway):
+  - `alembic upgrade head` → `alembic: command not found` (shim not on PATH).
+  - `python -m alembic upgrade head` → `No module named alembic.__main__` on the alembic
+    version in the Railway image (older alembic has no __main__).
+  - **`python -m app.migrate`** calls Alembic's Python API directly — works on any version,
+    no PATH entry needed. Verified from a clean database: it runs `0001_create_heartbeats`.
+  - `python -m uvicorn` is safe (uvicorn ships __main__); `python -m app.main` also works
+    as a fallback.
 - Redeploy. When it's Online, open the service URL:
   - `/health` → `{"status":"ok","db":true,"redis":true}`
   - `/` → the Jinja health page renders.
