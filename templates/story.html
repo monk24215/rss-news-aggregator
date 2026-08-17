@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ card.headline.text }}{% endblock %}
+{% block content %}
+
+{#
+  The story page (§34.3). Order matters here: what happened, then who reported it, then
+  the reporting itself. A reader should be able to stop after the summary and still have
+  been told the truth about where it came from.
+#}
+
+<article>
+  <h1>{{ card.headline.text }}</h1>
+
+  <div class="meta">
+    <span>{{ relative_time(card.published_at) }}</span>
+    <span>{{ card.source_count }} source{{ '' if card.source_count == 1 else 's' }}</span>
+    <span>{{ story.state }}</span>
+    {% if story.is_verified %}<span>verified</span>{% endif %}
+  </div>
+
+  {% if card.image_url %}
+  <figure class="lede"><img src="{{ card.image_url }}" alt="" loading="lazy" /></figure>
+  {% endif %}
+
+  {% if card.summary %}
+  <section>
+    {% if card.summary.is_ai %}
+      <p><span class="ai-note">{{ card.summary.attribution }}</span></p>
+    {% endif %}
+    <p class="summary">{{ card.summary.text }}</p>
+    {% if not card.summary.is_ai %}
+      <p class="meta">Summary as published by {{ card.sources[0].name if card.sources else 'the source' }}.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if card.tags %}
+  <div class="tags">
+    {% for tag in card.tags %}<a href="/topic/{{ tag.slug }}">{{ tag.name }}</a>{% endfor %}
+  </div>
+  {% endif %}
+
+  {# §34.5 — the reporting is named, and named separately from anything generated. #}
+  <h2 class="section">Original reporting</h2>
+  {% if card.articles %}
+  <table class="plain">
+    {% for article in card.articles %}
+    <tr>
+      <td>
+        <a href="{{ article.original_url }}" rel="noopener nofollow">{{ article.original_headline }}</a>
+        <div class="meta">
+          <span>{{ article.source.name if article.source else '' }}</span>
+          {% if article.original_author %}<span>{{ article.original_author }}</span>{% endif %}
+          <span>{{ relative_time(article.original_published_at) }}</span>
+          {% if loop.first %}<span>first reported</span>{% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if timeline and timeline|length > 1 %}
+  <h2 class="section">Timeline</h2>
+  <table class="plain">
+    {% for event in timeline %}
+    <tr>
+      <td style="width: 8rem; white-space: nowrap; vertical-align: top;" class="meta">
+        {{ event.occurred_at.strftime('%b %d, %H:%M') }} UTC
+      </td>
+      <td>{{ event.summary }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if story.has_unresolved_conflicts %}
+  <h2 class="section">Sources disagree</h2>
+  <p class="summary">Reports differ on details of this story. Both versions are kept
+     below rather than reconciled.</p>
+  {% endif %}
+
+  {% if why_trending %}
+  <h2 class="section">Why this is here</h2>
+  <ul class="meta" style="display:block; padding-left: 1.1rem;">
+    {% for line in why_trending %}<li style="margin-bottom:0.2rem;">{{ line }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if related %}
+  <h2 class="section">Related</h2>
+  {% for card in related %}{% include "_card.html" %}{% endfor %}
+  {% endif %}
+</article>
+
+{% endblock %}

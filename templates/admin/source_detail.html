@@ -1,0 +1,49 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ source.name }}{% endblock %}
+{% block content %}
+<h1>{{ source.name }}</h1>
+<p class="faint"><code>{{ source.feed_url }}</code></p>
+
+<div class="cards">
+  <div class="card"><div class="n">{{ source.article_count }}</div><div class="k">Articles</div></div>
+  <div class="card"><div class="n">{{ source.consecutive_failures }}</div><div class="k">Consecutive failures</div></div>
+  <div class="card"><div class="n">{{ source.priority }}</div><div class="k">Priority</div></div>
+  <div class="card"><div class="n">{{ (source.fetch_interval_seconds // 60) }}m</div><div class="k">Interval</div></div>
+</div>
+
+<p style="margin-top:1rem;">
+  <form class="inline" method="post" action="/admin/source/{{ source.id }}/toggle">
+    <button type="submit">{{ 'Deactivate' if source.is_active else 'Activate' }}</button>
+  </form>
+  {% if source.consecutive_failures %}
+  <form class="inline" method="post" action="/admin/source/{{ source.id }}/clear-failures">
+    <button type="submit">Clear failures and retry</button>
+  </form>
+  {% endif %}
+</p>
+
+{% if source.last_error %}
+<h2>Last error</h2>
+<div class="card attention"><code>{{ source.last_error }}</code></div>
+{% endif %}
+
+<h2>Fetch history</h2>
+{% if logs %}
+<table>
+  <tr><th>When</th><th>Result</th><th>HTTP</th><th>Items</th><th>New</th><th>ms</th></tr>
+  {% for log in logs %}
+  <tr>
+    <td class="faint">{{ log.attempted_at.strftime('%b %d %H:%M') }}</td>
+    <td>{% if log.not_modified %}<span class="pill">not modified</span>
+        {% elif log.succeeded %}<span class="pill ok">ok</span>
+        {% else %}<span class="pill warn">failed</span>{% endif %}
+        {% if log.error %}<div class="faint">{{ log.error }}</div>{% endif %}</td>
+    <td>{{ log.http_status or '—' }}</td>
+    <td>{{ log.items_returned if log.items_returned is not none else '—' }}</td>
+    <td>{{ log.items_new if log.items_new is not none else '—' }}</td>
+    <td class="faint">{{ log.response_ms or '—' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<div class="empty">No fetch attempts recorded yet.</div>{% endif %}
+{% endblock %}

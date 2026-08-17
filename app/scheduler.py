@@ -24,6 +24,7 @@ from arq import cron, run_worker
 
 from app.config import get_settings
 from app.queue import QUEUE_SCHEDULER, QUEUE_WORKER, redis_settings
+from app.tasks.ingest import enqueue_due_sources
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,7 +55,12 @@ async def enqueue_heartbeat(ctx: dict) -> None:
 
 class SchedulerSettings:
     functions: list = []  # the scheduler runs no heavy jobs itself
-    cron_jobs = [cron(enqueue_heartbeat, second=_seconds, run_at_startup=True)]
+    cron_jobs = [
+        cron(enqueue_heartbeat, second=_seconds, run_at_startup=True),
+        # Every minute, ask which sources are due and queue one fetch each. The
+        # scheduler decides *what* should happen; the worker does it (§43.2).
+        cron(enqueue_due_sources, second={0}, run_at_startup=True),
+    ]
     redis_settings = redis_settings()
     queue_name = QUEUE_SCHEDULER
 

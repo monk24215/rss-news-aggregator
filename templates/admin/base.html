@@ -1,0 +1,78 @@
+{#
+  Admin shell. Deliberately plainer than the reader site: this is a workbench, not a
+  publication. Denser type, no serif, and the navigation exposes the five things §35
+  says an operator does.
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Admin{% endblock %} · {{ site_name|default("Aggregator") }}</title>
+  <style>
+    :root {
+      --bg:#f7f7f5; --surface:#fff; --text:#1a1a17; --muted:#5f5d55; --faint:#8a8779;
+      --rule:#e3e1d9; --accent:#1f5f8b; --warn:#8a3324; --ok:#2f6b3f; --warn-bg:#fdf4f2;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#141412; --surface:#1c1c19; --text:#ecebe4; --muted:#a5a294;
+              --faint:#7b7869; --rule:#2c2b25; --accent:#79b8dd; --warn:#e08b6f;
+              --ok:#86c397; --warn-bg:#241c19; }
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-size:14px; line-height:1.5;
+           font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+    a { color:var(--accent); }
+    .wrap { max-width:72rem; margin:0 auto; padding:0 1.25rem; }
+    header.admin { border-bottom:1px solid var(--rule); padding:1rem 0; margin-bottom:1.75rem;
+                   background:var(--surface); }
+    header.admin nav { display:flex; gap:1.25rem; flex-wrap:wrap; align-items:baseline; }
+    header.admin .brand { font-weight:700; margin-right:0.5rem; text-decoration:none; color:var(--text); }
+    header.admin nav a { text-decoration:none; color:var(--muted); font-size:0.85rem;
+                         text-transform:uppercase; letter-spacing:0.04em; }
+    header.admin nav a:hover { color:var(--accent); }
+    h1 { font-size:1.4rem; margin:0 0 1rem; }
+    h2 { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--faint);
+         border-bottom:1px solid var(--rule); padding-bottom:0.35rem; margin:2rem 0 0.85rem; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(9rem,1fr)); gap:0.75rem; }
+    .card { background:var(--surface); border:1px solid var(--rule); border-radius:4px;
+            padding:0.85rem 1rem; }
+    .card .n { font-size:1.6rem; font-weight:650; letter-spacing:-0.02em; }
+    .card .k { font-size:0.75rem; color:var(--faint); text-transform:uppercase;
+               letter-spacing:0.04em; }
+    table { width:100%; border-collapse:collapse; background:var(--surface);
+            border:1px solid var(--rule); border-radius:4px; }
+    th, td { text-align:left; padding:0.55rem 0.7rem; border-bottom:1px solid var(--rule);
+             vertical-align:top; }
+    th { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--faint); }
+    tr:last-child td { border-bottom:none; }
+    .muted { color:var(--muted); } .faint { color:var(--faint); font-size:0.82rem; }
+    .pill { display:inline-block; font-size:0.7rem; padding:0.1rem 0.4rem; border-radius:3px;
+            border:1px solid var(--rule); color:var(--muted); }
+    .pill.warn { color:var(--warn); border-color:var(--warn); }
+    .pill.ok { color:var(--ok); border-color:var(--ok); }
+    .attention { border-left:3px solid var(--warn); background:var(--warn-bg); }
+    .empty { border:1px dashed var(--rule); border-radius:4px; padding:1.5rem; text-align:center;
+             color:var(--muted); }
+    button { font:inherit; font-size:0.8rem; padding:0.25rem 0.6rem; cursor:pointer;
+             background:var(--surface); color:var(--text); border:1px solid var(--rule);
+             border-radius:3px; }
+    button:hover { border-color:var(--accent); color:var(--accent); }
+    form.inline { display:inline; }
+    code { font-family:ui-monospace,monospace; font-size:0.82em; word-break:break-all; }
+  </style>
+</head>
+<body>
+  <header class="admin"><div class="wrap"><nav>
+    <a class="brand" href="/admin">Admin</a>
+    <a href="/admin">Dashboard</a>
+    <a href="/admin/sources">Sources</a>
+    <a href="/admin/stories">Stories</a>
+    <a href="/admin/review">Review</a>
+    <a href="/admin/feeds">Feeds</a>
+    <a href="/admin/audit">Audit</a>
+    <a href="/">↗ Public site</a>
+  </nav></div></header>
+  <main class="wrap">{% block content %}{% endblock %}</main>
+</body>
+</html>

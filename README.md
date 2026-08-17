@@ -2,9 +2,27 @@
 
 AI RSS News Aggregator. See the full specification in [`docs/`](docs/).
 
-**Current state:** Section 1 — Foundation. A skeleton that boots as real services
-(web + worker + scheduler on Postgres + Redis), with CI and a proven
-scheduler → Redis → worker heartbeat. No product features yet.
+**Current state: v1 works end to end.** The scheduler queues due sources, the worker
+fetches and normalizes them, duplicates are rejected, articles are tagged and clustered
+into stories, stories are scored and placed into feeds, and the public site renders them
+with full attribution — plus RSS output per feed.
+
+Verified on live coverage from sixteen public feeds: 400 articles became 356 stories,
+eleven of which gathered reporting from multiple outlets (one Israeli-settler story from
+five publishers, one Lebanon airstrike from four), with 26 borderline matches routed to a
+review queue rather than merged silently.
+
+**No AI keys are required.** The default provider selects sentences the publishers
+already wrote, so it cannot fabricate anything, and everything it produces is labelled.
+Set `AI_PROVIDER=anthropic` with a key to upgrade — output is then checked against the
+source reporting before it is stored, and anything containing an invented figure or
+quotation is rejected and routed to a human (§15).
+
+There is an administrative interface at `/admin`: a needs-attention dashboard, source
+health with fetch history, the review queue, editorial controls, feed health, and the
+audit log.
+
+See `docs/BUILD_LOG.md` for exactly where the build is.
 
 ## Architecture (target, §43)
 
@@ -17,6 +35,45 @@ One codebase, run as multiple processes:
 | scheduler | `python -m app.scheduler` | Wakes on a timer, enqueues jobs. Does not process. |
 
 Postgres is the canonical store. Redis is the job broker.
+
+## The data model
+
+34 tables, organized by the three layers in §4.2 — original publisher data, system
+analysis, presentation. `docs/SCHEMA.md` maps every table to the requirement it serves.
+
+The rule that matters most is enforced by Postgres rather than by convention: a trigger
+rejects any UPDATE that changes an `original_*` column on `articles` (Non-Negotiable #1).
+Once a publisher's headline is overwritten there is nothing to restore it from, so that
+rule does not rely on everyone remembering it.
+
+```
+articles.original_headline   Layer 1  immutable, trigger-protected
+articles.importance_score    Layer 2  recomputed freely
+ai_results.content           Layer 3  versioned, append-only, never overwrites Layer 1
+```
+
+## Trying it
+
+```bash
+alembic upgrade head
+python -m scripts.seed          # source types, tags, 16 sources, 2 feeds
+python -m app.worker &          # fetches and processes
+python -m app.scheduler &       # queues due sources every minute
+uvicorn app.main:app            # the site at http://localhost:8000
+```
+
+| Route | What it is |
+|-------|-----------|
+| `/` | Trending and latest (§34.2) |
+| `/story/<slug>` | One story: summary, every source article, timeline, why it is here (§34.3) |
+| `/topics`, `/topic/<slug>` | Browse by tag |
+| `/sources` | Browse by publication, with fetch health |
+| `/feed/<slug>` | One feed instance |
+| `/rss/<slug>` | That feed as RSS — our headline, the publisher's link (§30) |
+| `/search?q=` | Keyword search across headlines and summaries |
+| `/admin` | Dashboard — what needs attention, then activity (§35.1) |
+| `/admin/sources`, `/admin/review`, `/admin/stories`, `/admin/feeds`, `/admin/audit` | Operate it |
+| `/health`, `/status` | Operational |
 
 ## Local development
 
@@ -51,8 +108,13 @@ REDIS_URL=${{Redis.REDIS_URL}}
 
 ```bash
 ruff check .
-pytest -q
+pytest -q                 # 65 tests; schema tests skip if no Postgres is reachable
+python -m tests.smoke     # real scheduler → Redis → worker → Postgres proof
 ```
+
+The schema tests run against real Postgres on purpose: the guarantees they check
+(triggers, CHECK constraints, partial unique indexes) live in the database, and passing
+them against SQLite would prove nothing about production.
 
 CI (`.github/workflows/ci.yml`) runs lint, migrations, tests, and a real-services
 smoke test of the heartbeat write path against Postgres + Redis.

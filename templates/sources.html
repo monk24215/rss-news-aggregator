@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Sources{% endblock %}
+{% block content %}
+  <h1>Sources</h1>
+  <p class="summary">The publications this site aggregates. Every article links back to
+     the publisher; we store metadata and summaries, never the article itself.</p>
+  {% if sources %}
+  <table class="plain">
+    <tr><th>Publication</th><th>Articles</th><th>Status</th></tr>
+    {% for source, count in sources %}
+    <tr>
+      <td>
+        {% if source.website_url %}<a href="{{ source.website_url }}" rel="noopener">{{ source.name }}</a>
+        {% else %}{{ source.name }}{% endif %}
+        {% if source.description %}<div class="meta">{{ source.description }}</div>{% endif %}
+      </td>
+      <td>{{ count }}</td>
+      <td class="meta">
+        {% if not source.is_active %}inactive
+        {% elif source.consecutive_failures and source.consecutive_failures > 0 %}failing ({{ source.consecutive_failures }})
+        {% elif source.last_fetch_succeeded_at %}updated {{ relative_time(source.last_fetch_succeeded_at) }}
+        {% else %}not yet fetched{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty"><p>No sources configured yet.</p></div>
+  {% endif %}
+{% endblock %}

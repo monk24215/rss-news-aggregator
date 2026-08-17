@@ -1,0 +1,85 @@
+{% extends "admin/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+{# §35.1: what needs attention comes first, before any counters. #}
+<h2>Needs attention {% if attention_total %}({{ attention_total }}){% endif %}</h2>
+{% if attention_total == 0 %}
+  <div class="empty">Nothing needs attention. Sources are healthy, no decisions are waiting.</div>
+{% else %}
+<table>
+  {% for source in needs_attention.failing_sources %}
+  <tr class="attention">
+    <td style="width:11rem;"><span class="pill warn">failing source</span></td>
+    <td><a href="/admin/source/{{ source.id }}">{{ source.name }}</a>
+      <div class="faint">{{ source.consecutive_failures }} consecutive failures ·
+        {{ source.last_error or 'no detail' }}</div></td>
+  </tr>
+  {% endfor %}
+  {% for item in needs_attention.review_items %}
+  <tr class="attention">
+    <td><span class="pill warn">review</span></td>
+    <td><a href="/admin/review">{{ item.reason.replace('_', ' ') }}</a>
+      <div class="faint">
+        {% if item.confidence is not none %}confidence {{ '%.2f'|format(item.confidence) }} · {% endif %}
+        {{ relative_time(item.created_at) }}</div></td>
+  </tr>
+  {% endfor %}
+  {% for story in needs_attention.conflicted_stories %}
+  <tr class="attention">
+    <td><span class="pill warn">sources disagree</span></td>
+    <td><a href="/story/{{ story.slug or story.id }}">story {{ story.id }}</a></td>
+  </tr>
+  {% endfor %}
+  {% for job in needs_attention.failed_jobs %}
+  <tr class="attention">
+    <td><span class="pill warn">failed job</span></td>
+    <td>{{ job.stage }} <div class="faint">{{ job.error or '' }}</div></td>
+  </tr>
+  {% endfor %}
+  {% for feed in needs_attention.empty_feeds %}
+  <tr class="attention">
+    <td><span class="pill warn">empty feed</span></td>
+    <td><a href="/admin/feeds">{{ feed.name }}</a>
+      <div class="faint">matches no stories — check its rules</div></td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<h2>Last 24 hours</h2>
+<div class="cards">
+  <div class="card"><div class="n">{{ today.articles_collected }}</div><div class="k">Collected</div></div>
+  <div class="card"><div class="n">{{ today.articles_processed }}</div><div class="k">Processed</div></div>
+  <div class="card"><div class="n">{{ today.stories_created }}</div><div class="k">New stories</div></div>
+  <div class="card"><div class="n">{{ today.ai_generations }}</div><div class="k">AI generations</div></div>
+  <div class="card"><div class="n">{{ today.ai_failures }}</div><div class="k">AI failures</div></div>
+</div>
+
+<h2>System</h2>
+<div class="cards">
+  <div class="card"><div class="n">{{ totals.active_sources }}/{{ totals.sources }}</div><div class="k">Sources active</div></div>
+  <div class="card"><div class="n">{{ totals.articles }}</div><div class="k">Articles</div></div>
+  <div class="card"><div class="n">{{ totals.stories }}</div><div class="k">Stories</div></div>
+  <div class="card"><div class="n">{{ totals.feeds }}</div><div class="k">Feeds</div></div>
+  <div class="card"><div class="n">{{ totals.queue_pending }}</div><div class="k">Queued jobs</div></div>
+  <div class="card"><div class="n">${{ '%.2f'|format(ai_spend.day) }}</div><div class="k">AI spend, 24h</div></div>
+  <div class="card"><div class="n">${{ '%.2f'|format(ai_spend.month) }}</div><div class="k">AI spend, 30d</div></div>
+</div>
+
+<h2>Trending now</h2>
+{% if trending %}
+<table>
+  <tr><th>Story</th><th style="width:6rem;">Trending</th><th style="width:6rem;">Sources</th><th style="width:8rem;">State</th></tr>
+  {% for story in trending %}
+  <tr>
+    <td><a href="/story/{{ story.slug or story.id }}">{{ story.slug or ('story ' ~ story.id) }}</a></td>
+    <td>{{ '%.0f'|format(story.trending_score or 0) }}</td>
+    <td>{{ story.source_count }}</td>
+    <td><span class="pill">{{ story.state }}</span></td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<div class="empty">No stories yet.</div>{% endif %}
+{% endblock %}

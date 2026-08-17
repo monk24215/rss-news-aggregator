@@ -2,7 +2,11 @@
 
 This process stays thin. It serves the reader UI (server-rendered Jinja, later HTMX) and
 the API, and it enqueues background jobs — but it NEVER performs expensive work inline
-(Non-Negotiable #7). In Section 1 it exposes a health check and a minimal Jinja page.
+(Non-Negotiable #7). It exposes the health check and operational status page, and mounts the public
+reader routes from `app.web`.
+
+The health check reports *why* a dependency is down, with credentials redacted — see
+`app/probes.py`. A boolean alone is not debuggable from outside the container.
 """
 
 from pathlib import Path
@@ -11,8 +15,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
+from app.admin import router as admin_router
 from app.config import get_settings
-from app.db import check_db
+from app.db import SYNC_DATABASE_URL, probe_db
+from app.probes import Probe, describe_failure, redact_url
+from app.web import router as public_router
 
 try:
     # Lazy import so a missing Redis at import time never crashes the web process.
@@ -25,41 +32,81 @@ app = FastAPI(title=settings.app_name)
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+# Shared with the public routes via app state so there is one template environment.
+app.state.templates = templates
+templates.env.globals["site_name"] = settings.app_name
+
+
+def probe_redis() -> Probe:
+    """PING Redis, reporting the reason on failure."""
+    url = settings.redis_url
+    target = redact_url(url)
+    if Redis is None:  # pragma: no cover - redis is a hard dependency
+        return Probe(False, "redis library not importable", target)
+    client = None
+    try:
+        client = Redis.from_url(url, socket_connect_timeout=3, socket_timeout=3)
+        return Probe(bool(client.ping()), None, target)
+    except Exception as exc:
+        return Probe(False, describe_failure(exc, url), target)
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:  # pragma: no cover
+                pass
+
+
+# Boolean wrappers — kept because they are the simplest thing to stub in tests.
+def check_db() -> bool:
+    return probe_db().ok
 
 
 def check_redis() -> bool:
-    """Return True if Redis responds to PING."""
-    if Redis is None:
-        return False
-    try:
-        client = Redis.from_url(settings.redis_url, socket_connect_timeout=2)
-        return bool(client.ping())
-    except Exception:
-        return False
+    return probe_redis().ok
 
 
 @app.get("/health")
 def health() -> JSONResponse:
-    db_ok = check_db()
-    redis_ok = check_redis()
-    status = "ok" if (db_ok and redis_ok) else "degraded"
-    return JSONResponse(
-        {"status": status, "db": db_ok, "redis": redis_ok},
-        status_code=200 if status == "ok" else 503,
-    )
+    db = probe_db()
+    redis_probe = probe_redis()
+    ok = db.ok and redis_probe.ok
+    body = {
+        "status": "ok" if ok else "degraded",
+        "db": db.ok,
+        "redis": redis_probe.ok,
+    }
+    if not ok:
+        # Only present when something is wrong, so the healthy payload stays the
+        # exact shape the Section 1 gate specified.
+        body["detail"] = {"db": db.as_dict(), "redis": redis_probe.as_dict()}
+    return JSONResponse(body, status_code=200 if ok else 503)
 
 
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request) -> HTMLResponse:
+@app.get("/status", response_class=HTMLResponse)
+def status_page(request: Request) -> HTMLResponse:
+    db = probe_db()
+    redis_probe = probe_redis()
     return templates.TemplateResponse(
         request,
         "health.html",
         {
             "app_name": settings.app_name,
-            "db_ok": check_db(),
-            "redis_ok": check_redis(),
+            "db_ok": db.ok,
+            "redis_ok": redis_probe.ok,
+            "db_target": db.target or redact_url(SYNC_DATABASE_URL),
+            "redis_target": redis_probe.target,
+            "db_error": db.error,
+            "redis_error": redis_probe.error,
         },
     )
+
+
+# The administrative interface (§35), then the reader-facing site (§34). Declared after
+# the operational endpoints so /health and /status keep their own handlers, and admin
+# before public so /admin is not swallowed by a public route.
+app.include_router(admin_router)
+app.include_router(public_router)
 
 
 if __name__ == "__main__":

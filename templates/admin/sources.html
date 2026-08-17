@@ -1,0 +1,22 @@
+{% extends "admin/base.html" %}
+{% block title %}Sources{% endblock %}
+{% block content %}
+<h1>Sources</h1>
+<table>
+  <tr><th>Source</th><th>Articles</th><th>Last fetch</th><th>Status</th></tr>
+  {% for source, count in rows %}
+  <tr {% if source.consecutive_failures %}class="attention"{% endif %}>
+    <td><a href="/admin/source/{{ source.id }}">{{ source.name }}</a>
+      <div class="faint"><code>{{ source.feed_url }}</code></div></td>
+    <td>{{ count }}</td>
+    <td class="faint">{{ relative_time(source.last_fetch_succeeded_at) or 'never' }}</td>
+    <td>
+      {% if not source.is_active %}<span class="pill">inactive</span>
+      {% elif source.consecutive_failures %}<span class="pill warn">{{ source.consecutive_failures }} failures</span>
+      {% else %}<span class="pill ok">ok</span>{% endif %}
+      {% if source.disabled_until %}<div class="faint">resting until {{ source.disabled_until.strftime('%H:%M') }} UTC</div>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

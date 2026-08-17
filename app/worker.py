@@ -3,8 +3,8 @@
 Run with:  python -m app.worker
 
 The worker consumes jobs from Redis and executes them (§43.1). It listens on QUEUE_WORKER.
-In Section 1 the only job is the heartbeat. Later phases register ingestion, clustering,
-scoring, and AI tasks in `functions`.
+Registered stages: the Section 1 heartbeat, source fetching (§11), and per-article
+processing (§14). Later phases add clustering, scoring, and AI tasks to `functions`.
 """
 
 import logging
@@ -12,7 +12,10 @@ import logging
 from arq import run_worker
 
 from app.queue import QUEUE_WORKER, redis_settings
+from app.tasks.ai import generate_story_text
 from app.tasks.heartbeat import heartbeat
+from app.tasks.ingest import fetch_source
+from app.tasks.process import process_article, reprocess_story
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,7 +24,13 @@ logging.basicConfig(
 
 
 class WorkerSettings:
-    functions = [heartbeat]
+    functions = [
+        heartbeat,
+        fetch_source,
+        process_article,
+        reprocess_story,
+        generate_story_text,
+    ]
     redis_settings = redis_settings()
     queue_name = QUEUE_WORKER
 

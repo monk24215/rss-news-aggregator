@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["app", "app.tasks"]
+packages = ["app", "app.models", "app.services", "app.services.ai", "app.tasks"]
 
 [project]
 name = "rss-news-aggregator"
@@ -22,6 +22,9 @@ dependencies = [
     "pydantic==2.10.4",
     "pydantic-settings==2.7.0",
     "httpx==0.28.1",
+    "feedparser==6.0.11",
+    # Form posts in the admin interface (§35.4 actions).
+    "python-multipart==0.0.20",
 ]
 
 [project.optional-dependencies]
@@ -37,6 +40,13 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic writes these files; its formatting is not ours to police, and reformatting a
+# migration after it has run is a good way to introduce a difference between what was
+# reviewed and what was applied. Correctness still matters here — only line length and
+# import order are waived.
+"alembic/versions/*.py" = ["E501", "I001"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

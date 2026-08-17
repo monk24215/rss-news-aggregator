@@ -1,0 +1,17 @@
+{% extends "admin/base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<h1>Audit log</h1>
+<p class="muted">§37 — administrative changes in human terms, kept separate from technical logs.</p>
+{% if entries %}
+<table>
+  <tr><th style="width:11rem;">When</th><th>What</th></tr>
+  {% for entry in entries %}
+  <tr>
+    <td class="faint">{{ entry.occurred_at.strftime('%b %d %H:%M') }} UTC</td>
+    <td>{{ entry.summary }}<div class="faint">{{ entry.action }} · {{ entry.entity_type }} {{ entry.entity_id or '' }}</div></td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<div class="empty">No administrative changes recorded yet.</div>{% endif %}
+{% endblock %}

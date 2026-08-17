@@ -1,0 +1,35 @@
+{#
+  One story card (§34.2). Used on the front page, topic pages, feeds, and search.
+  The headline links to OUR story page — the story is the unit — while every source
+  article underneath links to the publisher (Non-Negotiable #2).
+#}
+<article class="story{% if lead %} lead{% endif %}">
+  {% if lead and card.image_url %}
+  <figure class="lede"><img src="{{ card.image_url }}" alt="" loading="lazy" /></figure>
+  {% endif %}
+
+  <h3>
+    <a class="headline" href="/story/{{ card.story.slug or card.story.id }}">{{ card.headline.text }}</a>
+  </h3>
+
+  {% if card.summary %}
+  <p class="summary">{{ card.summary.text }}</p>
+  {% endif %}
+
+  <div class="meta">
+    {% if card.headline.is_ai or (card.summary and card.summary.is_ai) %}
+      <span class="ai-note">{{ (card.summary or card.headline).attribution }}</span>
+    {% endif %}
+    <span>{{ relative_time(card.published_at) }}</span>
+    <span>{{ card.source_count }} source{{ '' if card.source_count == 1 else 's' }}</span>
+    {% if card.sources %}
+    <span class="sources">{{ card.sources | map(attribute='name') | join(' · ') }}</span>
+    {% endif %}
+  </div>
+
+  {% if card.tags %}
+  <div class="tags">
+    {% for tag in card.tags %}<a href="/topic/{{ tag.slug }}">{{ tag.name }}</a>{% endfor %}
+  </div>
+  {% endif %}
+</article>

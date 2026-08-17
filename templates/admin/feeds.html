@@ -1,0 +1,33 @@
+{% extends "admin/base.html" %}
+{% block title %}Feeds{% endblock %}
+{% block content %}
+<h1>Feeds</h1>
+<p class="muted">§29.3 — each feed's configuration next to what it actually produces, so a
+   rule that matches nothing is obvious rather than mysterious.</p>
+
+{% for entry in feeds %}
+<h2>{{ entry.feed.name }}</h2>
+<div class="cards">
+  <div class="card"><div class="n">{{ entry.feed.story_count }}</div><div class="k">Stories</div></div>
+  <div class="card"><div class="n">{{ entry.feed.stories_last_24h }}</div><div class="k">New, 24h</div></div>
+  <div class="card"><div class="n">{{ entry.rules.included_tags|length }}</div><div class="k">Included tags</div></div>
+  <div class="card"><div class="n">{{ entry.rules.excluded_tags|length }}</div><div class="k">Excluded tags</div></div>
+</div>
+<p class="faint" style="margin-top:0.6rem;">
+  Sort: {{ entry.feed.sort_order }} · Max {{ entry.feed.max_articles }} ·
+  RSS {{ 'on' if entry.feed.rss_enabled else 'off' }}
+  {% if entry.feed.rss_enabled %}(<a href="/rss/{{ entry.feed.slug }}">/rss/{{ entry.feed.slug }}</a>){% endif %}
+  {% if entry.feed.last_built_at %}· built {{ relative_time(entry.feed.last_built_at) }}{% endif %}
+</p>
+{% if entry.sample %}
+<table>
+  {% for card in entry.sample %}
+  <tr><td><a href="/story/{{ card.story.slug or card.story.id }}">{{ card.headline.text }}</a>
+    <div class="faint">{{ card.source_count }} source{{ '' if card.source_count == 1 else 's' }}</div></td></tr>
+  {% endfor %}
+</table>
+{% else %}
+<div class="empty">This feed currently matches no stories.</div>
+{% endif %}
+{% endfor %}
+{% endblock %}
