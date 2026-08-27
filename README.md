@@ -118,3 +118,10 @@ them against SQLite would prove nothing about production.
 
 CI (`.github/workflows/ci.yml`) runs lint, migrations, tests, and a real-services
 smoke test of the heartbeat write path against Postgres + Redis.
+
+## Rights
+
+No open-source license is included, so **all rights are reserved** by the
+author — the code is visible for reference, but nobody has permission to
+copy, modify, or redistribute it without asking first. If you'd like to use
+it, open an issue or reach out to [@monk24215](https://github.com/monk24215).
